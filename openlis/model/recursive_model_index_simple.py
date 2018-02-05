@@ -57,7 +57,7 @@ class RMI_simple(object):
         self.learning_rates = learning_rates
         self.max_steps = max_steps
         self.batch_sizes = batch_sizes
-        self.model_save_dir = 'tf_checkpoints'
+        self.model_save_dir = model_save_dir
 
         # Decide which optimized inference function to use, based on
         # number of hidden layers.
@@ -592,10 +592,10 @@ class RMI_simple(object):
                     
                 # Save a checkpoint and evaluate the model periodically.
                 if (step + 1) % 10000 == 0 and (step + 1) != self.max_steps[0]:
-                    checkpoint_file = os.path.join(model_save_dir, 'stage_1.ckpt')
+                    checkpoint_file = os.path.join(self.model_save_dir, 'stage_1.ckpt')
                     saver.save(sess, checkpoint_file, global_step=step)
                 if (step + 1) == self.max_steps[0]:
-                    checkpoint_file = os.path.join(model_save_dir, 'stage_1.ckpt')
+                    checkpoint_file = os.path.join(self.model_save_dir, 'stage_1.ckpt')
                     saver.save(sess, checkpoint_file)
 
             ## Train Stage 2
@@ -629,10 +629,10 @@ class RMI_simple(object):
                     
                 # Save a checkpoint and evaluate the model periodically.
                 if (step + 1) % 10000 == 0 and (step + 1) != self.max_steps[1]:
-                    checkpoint_file = os.path.join(model_save_dir, 'stage_2.ckpt')
+                    checkpoint_file = os.path.join(self.model_save_dir, 'stage_2.ckpt')
                     saver.save(sess, checkpoint_file, global_step=step)
                 if (step + 1) == self.max_steps[1]:
-                    checkpoint_file = os.path.join(model_save_dir, 'stage_2.ckpt')
+                    checkpoint_file = os.path.join(self.model_save_dir, 'stage_2.ckpt')
                     saver.save(sess, checkpoint_file)
 
 
@@ -921,8 +921,8 @@ class RMI_simple(object):
             sess.run(init)
 
             # Load checkpoint
-            checkpoint_file = os.path.join(model_save_dir, "stage_2.ckpt")
-            meta_file = os.path.join(model_save_dir,"stage_2.ckpt.meta")
+            checkpoint_file = os.path.join(self.model_save_dir, "stage_2.ckpt")
+            meta_file = os.path.join(self.model_save_dir,"stage_2.ckpt.meta")
             saver = tf.train.import_meta_graph(meta_file)    
             saver.restore(sess, checkpoint_file)
 
