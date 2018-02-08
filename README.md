@@ -13,15 +13,15 @@ a high-level database-like interface with Select, Insert, and Delete functionali
 
 ### The Recursive-Model Index
 
-An example of a standard index structure would be a BTree, which keeps `keys` sorted within a tree structure and allows fast lookup of the `keys`. BTrees and their variants are often used by modern databases to perform fast search and are particularly efficient when searching for a range of `keys`.
+An example of a standard index structure is a BTree, which keeps `keys` sorted within a tree structure and allows fast lookup of the `keys`. BTrees and their variants are often used by modern databases to perform fast search and are particularly efficient when searching for a range of `keys`.
 
 The basic idea of the Learned Index Structures paper is to replace standard index structures (such as BTrees) with statistical learning methods (such as neural networks). Both take a `key` as input and output the position of the key in the data set.
         
 The paper proposes using a Recursive-Model Index (RMI) as the statistical learning method. A general RMI would consist of several stages. We only implement two stages, as was done in the paper.
 
-In Stage 1 a neural network is used to predict the position of the `key`. The predicted position is used to choose which linear regression model to use in Stage 2. Each linear regression model in Stage 2 is called an "expert." Each expert handles only a small subset of the outputs of Stage 1. More detail can be found in the paper referenced above.
+In Stage 1 a neural network is used to predict the position of the `key`. The predicted position is then used to choose which linear regression model to use in Stage 2. Each linear regression model in Stage 2 is called an "expert." Each expert handles only a small subset of the outputs of Stage 1. For more detail see the paper referenced above.
 
-The output of Stage 2 is a (hopefully) improved prediction of the position of the `key`. Because the predicted position can be off, a binary search over nearby locations is used to find the `key`. The range of the binary search is determined by the known maximum error of each linear regression model.
+The output of Stage 2 is a (hopefully) improved prediction of the position of the `key`. Because the predicted position is typically slightly off, a binary search over nearby locations is used to find the `key`. The range of the binary search is determined by the known maximum error of each linear regression model.
 
 
 
@@ -137,7 +137,7 @@ If you want zero hidden layers (i.e. just do a linear regression with no activat
 hidden_layer_widths = []
 ```
 
-The number of linear regression models to use in Stage 2 is set by the input parameter `num_experts`. For example, if you want 100 experts, set
+The number of linear regression models used in Stage 2 is set by the input parameter `num_experts`. For example, if you want 100 experts, set
 
 ```
 num_experts = 100
@@ -159,7 +159,7 @@ This creates an object of type `IndexStructurePacked`.
 
 The word "Packed" in `IndexStructurePacked` refers to how the keys are stored. In this initial implementation, the keys are simply stored contiguously in a Numpy array. This means that insertions and deletions will be quite slow, because the array must be resized. 
 
-As proposed in the paper, we could introduce gaps in the stored data, leaving room for key insertions and requiring no additional work after deletions. The resulting class, `IndexStructureGapped`, would share many implementation details with the simpler `IndexStructurePacked`. Thus, the implementation of `IndexStructurePacked` is a logical first step in implementing the gapped version.
+As proposed in the paper, we could introduce gaps in the stored data, leaving room for key insertions and requiring no additional work after deletions. The resulting class, `IndexStructureGapped`, would share many implementation details with the simpler `IndexStructurePacked`. Thus, the implementation of `IndexStructurePacked` is a logical first step toward implementing the gapped version.
 
 #### Notes:
 * Need to implement the `IndexStructureGapped` class to speed up insertion and deletion.
@@ -180,7 +180,7 @@ rmi_db.train(batch_sizes=[10000,1000],
 `learning_rates` are the learning rates for the two stages.  
 `model_save_dir` is where to save the trained model.
 
-Currently, the user must choose these hyperparameters manually. 
+Currently, the user must choose the above hyperparameters manually. 
 
 Training proceeds as follows:
 
