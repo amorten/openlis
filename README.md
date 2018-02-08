@@ -53,7 +53,7 @@ The module defines a class DataSet. You can obtain a DataSet object in four ways
 
 ```
 data_set = openlis.data.generate_uniform_floats(num_keys,
-                                     key_range,
+                                          key_range,
                                      iseed=17)
 ```
 
@@ -111,7 +111,6 @@ and the validation DataSet will be stored in
 ```
 data_sets.valid
 ```
-.
 
 ### Create a Recursive-Index-Model
 
@@ -217,7 +216,7 @@ Basically, `rmi_db.train(...)` wraps the above three functions into a single con
 
 Once we have a fully trained model with saved errors and saved weights -- for example, after we have run `rmi_db.train(...)` -- we are ready to use the database functionality!
 
-Given a Numpy array `keys`, you may  
+Given a list or Numpy array `keys`, you may  
 
 
 * Select the `keys`:
@@ -248,6 +247,12 @@ Given a Numpy array `keys`, you may
 	The output, `success`, is a boolean array that 
 	indicates whether each key deletion was a success. 
 	Deletion fails if the key was not in the data set.
+	
+#### Notes:
+* Instead of a list or Numpy array of `keys`, you may input a single `key` to any of the above functions.
+* Submitting multiple keys at a time is significantly faster than submitting single keys repeatedly.
+     * Select, Insert and Delete all run inference on all of the input `keys` as a single batch, which can be faster than running inference on one key at a time.
+     * Insert and Delete, as currently implemented in `IndexStructurePacked` require O(n+k) time, where n is the size of the data set and k is the number of keys to insert or delete. Repeated single-key insertions or deletions would instead require O(kn) time.
 
 ### Don't forget to retrain the model!
 
