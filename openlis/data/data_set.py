@@ -6,7 +6,7 @@ import os
 
 class DataSet(object):
 
-  def __init__(self, keys, labels):
+  def __init__(self, keys, labels=None):
     """Construct a DataSet.
     """
    
@@ -16,7 +16,12 @@ class DataSet(object):
     self._num_keys = keys.shape[0]
 
     self._keys = np.array(keys)
-    self._labels = np.array(labels)
+    if labels is not None:
+        self._labels = np.array(labels)
+    else:
+        self._keys = np.sort(keys)
+        self._labels = np.arange(self._num_keys)
+        
     self._epochs_completed = 0
     self._index_in_epoch = 0
 
@@ -119,13 +124,25 @@ def create_train_validate_data_sets(data_set, validation_size=0):
   return data_sets
 
 
-def generate_uniform_floats_data_set(num_keys=100000, key_range=[0.0,1.0], iseed=None):
+def generate_uniform_floats(num_keys=100000, key_range=[0.0,1.0], iseed=None):
   """Generate a DataSet of uniform floating points.
   """
 
   np.random.seed(iseed)
   keys = np.random.random(num_keys)
   keys = (key_range[1] - key_range[0]) * keys + key_range[0]
+  
+  keys = np.sort(keys)
+  labels = np.arange(num_keys)
+
+  return DataSet(keys=keys, labels=labels)
+
+def generate_normal_floats(num_keys=100000, mean=0, std=1.0, iseed=None):
+  """Generate a DataSet of normallaly distributed floating points.
+  """
+
+  np.random.seed(iseed)
+  keys = np.random.normal(loc=mean, scale=std, size=num_keys)
   
   keys = np.sort(keys)
   labels = np.arange(num_keys)
