@@ -282,6 +282,22 @@ The hyperparameters from the previous training are remembered and used by defaul
 #### Notes:
 * In a future implementation, the user could receive a warning when the error of the model exceeds some threshold.
 
+### Save and load the database
+
+Saving and loading a database is easy. To save a database use
+
+```
+openlis.database.save_db(rmi_db,"temp_db.p")
+```
+
+To load a saved database use
+
+```
+rmi_db = openlis.database.load_db("temp_db.p")
+```
+
+The filename `"temp_db.p"` used above is just an example -- you can use any filename you want. Because saving and loading use the `pickle` package, using a filename extension `.p` is a reasonable choice.
+
 ### Other functions
 
 Some functions do not fit within the standard use case.  For example, model inference can be run directly using

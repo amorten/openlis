@@ -406,5 +406,4 @@ class IndexStructureGapped(object):
         # Calculate the Stage 2 errors
         self._model.calc_min_max_errors()
 
-        
 
