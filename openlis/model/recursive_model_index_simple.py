@@ -107,7 +107,7 @@ class RMI_simple(object):
         # to a uniform distribution in the range [-0.5,0.5]
         self._keys_norm_factor = 0.5 / np.sqrt(3)
         # Precalculation for expert = floor(stage_1_pos * expert_factor)
-        self._expert_factor = self.num_experts/self._data_set.num_keys
+        self._expert_factor = self.num_experts/self._data_set.num_positions
 
         
     def new_data(self, data_set):
@@ -119,6 +119,16 @@ class RMI_simple(object):
         """
         
         self._data_set = data_set
+
+        # Normalize using mean and dividing by the standard deviation
+        self._keys_mean = self._data_set.keys_mean
+        self._keys_std_inverse = 1.0 / self._data_set.keys_std
+        # Normalize further by dividing by 2*sqrt(3), so that
+        # a uniform distribution in the range [a,b] would transform
+        # to a uniform distribution in the range [-0.5,0.5]
+        self._keys_norm_factor = 0.5 / np.sqrt(3)
+        # Precalculation for expert = floor(stage_1_pos * expert_factor)
+        self._expert_factor = self.num_experts/self._data_set.num_positions
 
         
     def _setup_placeholder_inputs(self,batch_size):
@@ -248,7 +258,7 @@ class RMI_simple(object):
                 # the learning rates scale with N, so we should
                 # consider doing this normalization outside of
                 # the Tensflow pipeline.
-                pos_stage_1 = tf.scalar_mul(tf.constant(self._data_set.num_keys,
+                pos_stage_1 = tf.scalar_mul(tf.constant(self._data_set.num_positions,
                                                         dtype=tf.float64),
                                             tf.add(pos_stage_1,
                                                    tf.constant(0.5,dtype=tf.float64)))
@@ -315,7 +325,7 @@ class RMI_simple(object):
             pos_stage_2: tensor, output of Stage 2 inference
         """
 
-        max_index = self._data_set.num_keys
+        max_index = self._data_set.num_positions
 
         # Stage 2 
         with tf.name_scope('stage_2'):
@@ -560,7 +570,8 @@ class RMI_simple(object):
             
 
             ## Train Stage 1 
-
+            print("Stage 1 Training:")
+            
             training_start_time = time.time()
             
             # Start the training loop.
@@ -579,7 +590,7 @@ class RMI_simple(object):
                                          feed_dict=feed_dict)
                 
                 duration = time.time() - start_time
-                
+
                 # Print an overview fairly often.
                 if step % 100 == 0:
                     # Print status to stdout.
@@ -599,6 +610,7 @@ class RMI_simple(object):
                     saver.save(sess, checkpoint_file)
 
             ## Train Stage 2
+            print("\nStage 2 Training:")
             
             # Start the training loop.
             for step in xrange(self.max_steps[1]):
@@ -966,10 +978,10 @@ class RMI_simple(object):
         self.max_error_left = np.zeros([self.num_experts])
         self.max_error_right = np.zeros([self.num_experts])
         
-        self.min_predict = (np.ones([self.num_experts]) * self._data_set.num_keys) - 1
+        self.min_predict = (np.ones([self.num_experts]) * self._data_set.num_positions) - 1
         self.max_predict = np.zeros([self.num_experts])
 
-        self.min_pos = (np.ones([self.num_experts]) * self._data_set.num_keys) - 1
+        self.min_pos = (np.ones([self.num_experts]) * self._data_set.num_positions) - 1
         self.max_pos = np.zeros([self.num_experts])
 
         
@@ -977,7 +989,7 @@ class RMI_simple(object):
         for step in range(0, self._data_set.num_keys, batch_size):
         
             positions, experts = self.run_inference(self._data_set.keys[step:(step+batch_size)])
-            true_positions = self._data_set.labels[step:(step+batch_size)]
+            true_positions = self._data_set.positions[step:(step+batch_size)]
 
             for idx in range(len(true_positions)):
 
@@ -1010,7 +1022,7 @@ class RMI_simple(object):
         """Run inference using numpy, assuming 0 hidden layers in Stage 1.
 
         Args:
-            keys: Tensorflow placeholder for keys.
+            keys: List or numpy array of keys.
 
         Returns:
             (pos_stage_2, experts)
@@ -1032,7 +1044,7 @@ class RMI_simple(object):
         out = np.add(out,self.linear_b)
 
         out = np.add(out,0.5)
-        out = np.multiply(out,self._data_set.num_keys)
+        out = np.multiply(out,self._data_set.num_positions)
         
         expert = np.multiply(out,self._expert_factor) 
         expert = expert.astype(np.int32) # astype() equivalent to floor() + casting
@@ -1044,12 +1056,39 @@ class RMI_simple(object):
         
         return (out, expert)
 
+    def _run_inference_numpy_0_hidden_0_experts(self,keys):
+        """Run inference using numpy, assuming 0 hidden layers in Stage 1.
+
+        Args:
+            keys: numpy array of keys.
+
+        Returns:
+
+            pos_stage_1: Position predictions for the keys.
+
+        """
+
+        # Do the same calculations found in self._setup_inference_stage_1()
+        # and in self._setup_inference_stage_2(), but use numpy instead of
+        # TensorFlow.
+        
+        keys = (keys - self._keys_mean) * self._keys_std_inverse
+        keys = keys * self._keys_norm_factor
+                
+        out = np.matmul(keys,self.linear_w)
+        out = np.add(out,self.linear_b)
+
+        out = np.add(out,0.5)
+        out = np.multiply(out,self._data_set.num_positions)
+        
+        return out
+
     
     def _run_inference_numpy_1_hidden(self,keys):
         """Run inference using numpy, assuming 1 hidden layers in Stage 1.
 
         Args:
-            keys: Tensorflow placeholder for keys.
+            keys: List or numpy array of keys.
 
         Returns:
             (pos_stage_2, experts)
@@ -1075,7 +1114,7 @@ class RMI_simple(object):
         out = np.add(out,self.linear_b)
 
         out = np.add(out,0.5)
-        out = np.multiply(out,self._data_set.num_keys)
+        out = np.multiply(out,self._data_set.num_positions)
 
         expert = np.multiply(out,self._expert_factor) 
         expert = expert.astype(np.int32) # astype() equivalent to floor() + casting
@@ -1092,7 +1131,7 @@ class RMI_simple(object):
         """Run inference using numpy, assuming 2 hidden layers in Stage 1.
 
         Args:
-            keys: Tensorflow placeholder for keys.
+            keys: List or numpy array of keys.
 
         Returns:
             (pos_stage_2, experts)
@@ -1122,7 +1161,7 @@ class RMI_simple(object):
         out = np.add(out,self.linear_b)
 
         out = np.add(out,0.5)
-        out = np.multiply(out,self._data_set.num_keys)
+        out = np.multiply(out,self._data_set.num_positions)
 
         expert = np.multiply(out,self._expert_factor) 
         expert = expert.astype(np.int32) # astype() equivalent to floor() + casting
@@ -1139,7 +1178,7 @@ class RMI_simple(object):
         """Run inference using numpy, assuming any number of hidden layers in Stage 1.
 
         Args:
-            keys: Tensorflow placeholder for keys.
+            keys: List or numpy array of keys.
 
         Returns:
             (pos_stage_2, experts)
@@ -1168,7 +1207,7 @@ class RMI_simple(object):
         out = np.add(out,self.linear_b)
 
         out = np.add(out,0.5)
-        out = np.multiply(out,self._data_set.num_keys)
+        out = np.multiply(out,self._data_set.num_positions)
 
         expert = np.multiply(out,self._expert_factor) 
         expert = expert.astype(np.int32) # astype() equivalent to floor() + casting

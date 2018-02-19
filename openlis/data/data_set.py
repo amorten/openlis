@@ -6,22 +6,31 @@ import os
 
 class DataSet(object):
 
-  def __init__(self, keys, labels=None):
+  def __init__(self, keys, positions=None, num_positions=None):
     """Construct a DataSet.
     """
    
-    assert keys.shape[0] == labels.shape[0], (
-          'keys.shape: %s labels.shape: %s' % (keys.shape, labels.shape))
+    assert keys.shape[0] == positions.shape[0], (
+          'keys.shape: %s positions.shape: %s' % (keys.shape, positions.shape))
 
     self._num_keys = keys.shape[0]
-
+    
+    
     self._keys = np.array(keys)
-    if labels is not None:
-        self._labels = np.array(labels)
+    if positions is not None:
+        self._positions = np.array(positions)
     else:
         self._keys = np.sort(keys)
-        self._labels = np.arange(self._num_keys)
-        
+        self._positions = np.arange(self._num_keys)
+
+    if num_positions is not None:
+      self._num_positions = num_positions
+    else:
+      if len(self._positions) == 0:
+        self._num_positions = 0
+      else:
+        self._num_positions = self._positions[-1] + 1
+      
     self._epochs_completed = 0
     self._index_in_epoch = 0
 
@@ -42,12 +51,16 @@ class DataSet(object):
     return self._keys
 
   @property
-  def labels(self):
-    return self._labels
+  def positions(self):
+    return self._positions
 
   @property
   def num_keys(self):
     return self._num_keys
+
+  @property
+  def num_positions(self):
+    return self._num_positions
 
   @property
   def epochs_completed(self):
@@ -79,13 +92,13 @@ class DataSet(object):
         perm = np.arange(self._num_keys)
         np.random.shuffle(perm)
         self._keys = self._keys[perm]
-        self._labels = self._labels[perm]
+        self._positions = self._positions[perm]
       # Start next epoch
       start = 0
       self._index_in_epoch = batch_size
       assert batch_size <= self._num_keys
     end = self._index_in_epoch
-    return self._keys[start:end], self._labels[start:end]
+    return self._keys[start:end], self._positions[start:end]
 
   def reset_epoch(self):
     self._index_in_epoch = 0
@@ -95,11 +108,11 @@ def create_train_validate_data_sets(data_set, validation_size=0):
   """Creates training and validation data sets.
   """
 
-  #Shuffle the keys and labels by same permutation
+  #Shuffle the keys and positions by same permutation
   perm = np.arange(data_set.num_keys)
   np.random.shuffle(perm)
   keys = data_set.keys[perm]
-  labels = data_set.labels[perm]
+  positions = data_set.positions[perm]
 
   if not 0 <= validation_size <= len(keys):
     raise ValueError(
@@ -107,12 +120,12 @@ def create_train_validate_data_sets(data_set, validation_size=0):
         .format(len(keys), validation_size))
 
   validation_keys = keys[:validation_size]
-  validation_labels = labels[:validation_size]
+  validation_positions = positions[:validation_size]
   train_keys = keys[validation_size:]
-  train_labels = labels[validation_size:]
+  train_positions = positions[validation_size:]
 
-  train = DataSet(np.reshape(train_keys,[-1,1]), train_labels)
-  validation = DataSet(validation_keys, validation_labels)
+  train = DataSet(np.reshape(train_keys,[-1,1]), train_positions)
+  validation = DataSet(validation_keys, validation_positions)
 
 
   class DataSets(object):
@@ -133,9 +146,9 @@ def generate_uniform_floats(num_keys=100000, key_range=[0.0,1.0], iseed=None):
   keys = (key_range[1] - key_range[0]) * keys + key_range[0]
   
   keys = np.sort(keys)
-  labels = np.arange(num_keys)
+  positions = np.arange(num_keys)
 
-  return DataSet(keys=keys, labels=labels)
+  return DataSet(keys=keys, positions=positions)
 
 def generate_normal_floats(num_keys=100000, mean=0, std=1.0, iseed=None):
   """Generate a DataSet of normallaly distributed floating points.
@@ -145,9 +158,9 @@ def generate_normal_floats(num_keys=100000, mean=0, std=1.0, iseed=None):
   keys = np.random.normal(loc=mean, scale=std, size=num_keys)
   
   keys = np.sort(keys)
-  labels = np.arange(num_keys)
+  positions = np.arange(num_keys)
 
-  return DataSet(keys=keys, labels=labels)
+  return DataSet(keys=keys, positions=positions)
 
 
 
@@ -156,8 +169,8 @@ def load_keys_npy(dir="./test_data", fname="uniform_floats.npy"):
 
   keys = np.load(os.path.join(dir, fname))
   keys = np.unique(keys) # Unique returns sorted data
-  labels = np.arange(len(keys))
+  positions = np.arange(len(keys))
   
-  return DataSet(keys=keys, labels=labels)
+  return DataSet(keys=keys, positions=positions)
 
 

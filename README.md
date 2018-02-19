@@ -147,21 +147,32 @@ num_experts = 100
 
 ### Create the database-like interface
 
-Once a model is defined, we can create a database-like interface to that model using
+Once a model is defined, we can create a database-like interface to that model using either 
 
 ```
 rmi_db = openlis.database.IndexStructurePacked(model=rmi)
 
 ```
 
-This creates an object of type `IndexStructurePacked`. 
+or
 
-The word "Packed" in `IndexStructurePacked` refers to how the keys are stored. In this initial implementation, the keys are simply stored contiguously in a Numpy array. This means that insertions and deletions will be quite slow, because the array must be resized. 
+```
+rmi_db = openlis.database.IndexStructureGapped(model=rmi, scale=2)
 
-As proposed in the paper, we could introduce gaps in the stored data, leaving room for key insertions and requiring no additional work after deletions. The resulting class, `IndexStructureGapped`, would share many implementation details with the simpler `IndexStructurePacked`. Thus, the implementation of `IndexStructurePacked` is a logical first step toward implementing the gapped version.
+```
 
-#### Notes:
-* Need to implement the `IndexStructureGapped` class to speed up insertion and deletion.
+The former creates an object of type `IndexStructurePacked` while the latter creates an object of type `IndexStructureGapped`. 
+
+The word "Packed" in `IndexStructurePacked` refers to how the keys are stored: the keys are simply stored contiguously in a Numpy array. This means that insertions and deletions will be quite slow, because the array must be resized. 
+
+The word "Gapped" in `IndexStructureGapped` also refers to how the keys are stored: gaps are left between keys in the Numpy array. The gaps leave room for fast key insertions and require no additional work for key deletions. The parameter `scale` sets the size of the "gapped" array relative to a packed array. For example, setting `scale = 3` would create two gaps for every key, evenly distributed between the keys.
+
+If using `IndexStructureGapped`, the fuction
+
+```
+rmi_db.rescale(scale=3)
+```
+can be used at any time to rescale the array. 
 
 ### Train the model
 
@@ -250,9 +261,13 @@ Given a list or Numpy array `keys`, you may
 	
 #### Notes:
 * Instead of a list or Numpy array of `keys`, you may input a single `key` to any of the above functions.
-* Submitting multiple keys at a time is significantly faster than submitting single keys repeatedly.
+* When using `IndexStructurePacked`, submitting multiple keys at a time is significantly faster than submitting single keys repeatedly.
      * Select, Insert and Delete all run inference on all of the input `keys` as a single batch, which can be faster than running inference on one key at a time.
      * Insert and Delete, as currently implemented in `IndexStructurePacked` require O(n+k) time, where n is the size of the data set and k is the number of keys to insert or delete. Repeated single-key insertions or deletions would instead require O(kn) time.
+* When using `IndexStructureGapped`, key insertion fails when the array runs out of gaps (and a warning is sent to stdout). The user should periodically use `rmi_db.rescale(...)` to create additional gaps in the key array. Having a sufficient number of gaps is important for fast insertion.
+
+####Notes:
+* In a future implementation of `IndexStructurePacked`, perhaps the key array could expand automatically whenever the gaps become too sparse after a call to `rmi_db.insert(...)`.
 
 ### Don't forget to retrain the model!
 

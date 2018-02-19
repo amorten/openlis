@@ -18,7 +18,7 @@ class IndexStructurePacked(object):
         """Initialize class
 
         Args:
-            model: An instance of class rmi_simple
+            model: An instance of class RMIsimple
 
         Returns:
             -
@@ -51,23 +51,7 @@ class IndexStructurePacked(object):
                 is leftmost position in the sorted array where Insert would
                 result in a sorted array.
         """
-        
-        # TODO: This function could potentially fail to
-        # find the correct insert position when the key
-        # is not already in the key_array. When the key
-        # is not already in the key_array, the error
-        # (max_error_left, max_error_right) might not
-        # actually be large enough. To fix this problem,
-        # when the predicted insert position is at the
-        # beginning or end of the key_array slice,
-        # further searching beyond the end of the slice
-        # should be done. The additional search could
-        # be linear or binary, searching an
-        # additional max_error_* amount, repeated
-        # as necessary.
-        # In testing, this failure mode has yet to happen,
-        # but it should be addressed.
-        
+
         num_keys = len(keys)
         keys = np.reshape(keys, (num_keys, 1))
 
@@ -114,15 +98,41 @@ class IndexStructurePacked(object):
             
             search_range = [search_range_left, search_range_right]
 
-            found_pos = np.searchsorted(self._keys_array[search_range[0]:search_range[1]+1],
-                                        keys[idx],
-                                        side='left')
+            # Before conducting the search, check whether the error bounds are large enough
+            leftmost_key = self._keys_array[search_range[0]]
+            rightmost_key = self._keys_array[search_range[1]]
 
-            # Because np.searchsorted returns an array with one element:
-            found_pos = found_pos[0]
-
-            # Adjust found_pos for full keys_array, not just for the slice
-            found_pos += search_range[0]
+            if leftmost_key <= keys[idx] <= rightmost_key:
+                # If the key lies within the range, search for it with binary search
+                found_pos = np.searchsorted(self._keys_array[search_range[0]:search_range[1]+1],
+                                            keys[idx],
+                                            side='left')
+                # Because np.searchsorted returns an array with one element:
+                found_pos = found_pos[0]
+                # Adjust found_pos for full keys_array, not just for the slice
+                found_pos += search_range[0]
+                
+            elif leftmost_key > keys[idx]:
+                # If the key lies to the left of the range, just scan to the left incrementally
+                pos = search_range[0] - 1
+                while pos >= 0:
+                    if self._keys_array[pos] < keys[idx]:
+                        found_pos = pos + 1
+                        break
+                    pos -= 1
+                if pos == -1:
+                    found_pos = 0
+                
+            elif rightmost_key < keys[idx]:
+                # If the key lies to the right of the range, just scan to the right incrementally
+                pos = search_range[1] + 1
+                while pos <= self._keys_array.shape[0] - 1:
+                    if self._keys_array[pos] >= keys[idx]:
+                        found_pos = pos
+                        break
+                    pos += 1
+                if pos == self._keys_array.shape[0]:
+                    found_pos = pos
 
             pos_output[idx] = found_pos
                                         
