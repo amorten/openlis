@@ -120,22 +120,21 @@ class IndexStructureGapped(object):
             max_key_idx = self._keys_array.shape[0] - 1
             
             # Leftmost search pos should typically be (model_pos - max_error_left),
-            # but must also lie between 0 and (max_key_idx - max_error_left)
+            # but must also lie between 0 and max_key_idx
             search_range_left = model_pos - max_error_left
             search_range_left = np.maximum(0,
                                            search_range_left)
-            search_range_left = np.minimum(max_key_idx - max_error_left,
+            search_range_left = np.minimum(max_key_idx,
                                            search_range_left)
 
             # Rightmost search pos should typically be (model_pos + max_error_right),
-            # but must also lie between max_error_right and max_key_idx
+            # but must also lie between 0 and max_key_idx
             search_range_right = model_pos + max_error_right
-            search_range_right = np.maximum(max_error_right,
+            search_range_right = np.maximum(0,
                                             search_range_right)
             search_range_right = np.minimum(max_key_idx,
                                             search_range_right)
-            
-            
+                        
             search_range = [search_range_left, search_range_right]
 
 
@@ -276,6 +275,7 @@ class IndexStructureGapped(object):
                         self._is_key[right_pos] = True
                         self._keys_array[pos+1:right_pos+1] = self._keys_array[pos:right_pos]
                         self._keys_array[pos] = key
+                        position_range_for_errors_update = [pos, right_pos+1]
                         break
                     else:
                         # If no gap, increment to the right
@@ -289,6 +289,7 @@ class IndexStructureGapped(object):
                         self._is_key[left_pos] = True
                         self._keys_array[left_pos:pos-1] = self._keys_array[left_pos+1:pos]
                         self._keys_array[pos - 1] = key
+                        position_range_for_errors_update = [left_pos, pos]
                         break
                     else:
                         # If no gap, increment to the left
@@ -301,6 +302,15 @@ class IndexStructureGapped(object):
                 # No insertaion position found
                 print("Warning: no gaps left to insert key.")
                 success[idx] = False
+
+            # Update errors for all keys that have moved
+            pos_range = position_range_for_errors_update
+            key_pos = []
+            for pos in range(pos_range[0],pos_range[1]):
+                if self._is_key[pos]:
+                    key_pos.append([[self._keys_array[pos]],
+                                    pos])
+            self._model.calc_min_max_errors(key_pos)
                     
         return success
 

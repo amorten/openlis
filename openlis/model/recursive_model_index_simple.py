@@ -82,6 +82,7 @@ class RMI_simple(object):
         self.min_pos = None
         self.max_pos = None
 
+        self._initialize_errors()
 
         # Define variables to stored trained tensor variables
         # (e.g. weights and biases).
@@ -962,47 +963,58 @@ class RMI_simple(object):
         
     
     def calc_min_max_errors(self,
+                            key_pos=None,
                             batch_size=10000):
         """Calculates the errors each Stage 2 expert makes in predicting the 
            keys poistion. Inference is run on the full data set to get the errors.
            The calculated prediction errors are stored in class member variables.
 
         Args:
+            key_pos: Numpy array of (key,position) pairs for which to calculate errors. 
+                     If key_pos==None, then all keys are used.
             batch_size: integer size of batches.
 
         Returns:
             -
         """
 
-        # Initialize errors for each expert
-        self.max_error_left = np.zeros([self.num_experts])
-        self.max_error_right = np.zeros([self.num_experts])
-        
-        self.min_predict = (np.ones([self.num_experts]) * self._data_set.num_positions) - 1
-        self.max_predict = np.zeros([self.num_experts])
+        if key_pos == None: # Use all keys
 
-        self.min_pos = (np.ones([self.num_experts]) * self._data_set.num_positions) - 1
-        self.max_pos = np.zeros([self.num_experts])
+            # Initialize errors
+            self._initialize_errors()
 
+            # Use all keys and positions
+            keys = self._data_set.keys
+            true_positions = self._data_set.positions
+            num_keys = self._data_set.num_keys
+
+        else: # Use subset of keys
+
+            # Only use keys and position specified by key_pos
+            keys, true_positions = list(zip(*key_pos))
+            keys = list(keys)
+            true_positions = list(true_positions)
+            num_keys = len(keys)
         
+            
         # Calculate errors for each expert
-        for step in range(0, self._data_set.num_keys, batch_size):
+        for step in range(0, num_keys, batch_size):
         
-            positions, experts = self.run_inference(self._data_set.keys[step:(step+batch_size)])
-            true_positions = self._data_set.positions[step:(step+batch_size)]
-
-            for idx in range(len(true_positions)):
-
+            positions, experts = self.run_inference(keys[step:(step+batch_size)])
+            true_positions_batch = true_positions[step:(step+batch_size)]
+            
+            for idx in range(len(positions)):
+                
                 pos = np.round(positions[idx])
                 expert = experts[idx]
-                true_pos = true_positions[idx]
-
-                                         
+                true_pos = true_positions_batch[idx]
+                
+                
                 self.min_predict[expert] = np.minimum(self.min_predict[expert],
-                                                  pos)
+                                                      pos)
                 self.max_predict[expert] = np.maximum(self.max_predict[expert],
-                                                  pos)
-
+                                                      pos)
+                
                 self.min_pos[expert] = np.minimum(self.min_pos[expert],
                                                   true_pos)
                 self.max_pos[expert] = np.maximum(self.max_pos[expert],
@@ -1015,9 +1027,36 @@ class RMI_simple(object):
                 elif error < 0:
                     self.max_error_right[expert] = np.maximum(self.max_error_right[expert],
                                                               np.abs(error))
-                    
 
+                
+                
+                        
+    def _initialize_errors(self):
+        """Helper function that initializes all errors before call to 
 
+        Args:
+            --
+
+        Returns:
+            --
+        
+        """
+        
+        # Initialize errors for each expert
+            
+        # The maximum left and right error for each expert
+        self.max_error_left = np.zeros([self.num_experts])
+        self.max_error_right = np.zeros([self.num_experts])
+        
+        # The minimum and maximum position predictions of each expert
+        self.min_predict = (np.ones([self.num_experts]) * self._data_set.num_positions) - 1
+        self.max_predict = np.zeros([self.num_experts])
+        
+        # The minimum and maximum true positions handled by each expert
+        self.min_pos = (np.ones([self.num_experts]) * self._data_set.num_positions) - 1
+        self.max_pos = np.zeros([self.num_experts])
+        
+        
     def _run_inference_numpy_0_hidden(self,keys):
         """Run inference using numpy, assuming 0 hidden layers in Stage 1.
 
